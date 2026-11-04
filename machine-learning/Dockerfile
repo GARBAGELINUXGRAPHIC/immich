@@ -46,9 +46,9 @@ RUN /opt/venv/bin/wheel unpack onnxruntime_openvino-*.whl && \
     patchelf --set-rpath '$ORIGIN' --force-rpath "$capi/libonnxruntime_providers_openvino.so" && \
     /opt/venv/bin/wheel pack onnxruntime_openvino-*/ -d /opt
 
-FROM python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26 AS builder-cuda
+FROM python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f AS builder-cuda
 
-FROM python:3.13-trixie@sha256:82c46c08c991d3d3ff10476ac5e386c2c28f27bbd3985a02c5e39fe99ab272eb AS builder-armnn
+FROM python:3.13-trixie@sha256:6a9220edda062e9223ea0784740a535987299420b96fbfd520b89bbd3e772485 AS builder-armnn
 
 # renovate: datasource=github-releases depName=ARM-software/armnn
 ARG ARMNN_VERSION="v26.07"
