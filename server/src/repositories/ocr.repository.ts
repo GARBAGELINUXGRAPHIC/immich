@@ -5,6 +5,7 @@ import { DummyValue, GenerateSql } from 'src/decorators.js';
 import { AssetOcrResponseDto } from 'src/dtos/ocr.dto.js';
 import { DB } from 'src/schema/index.js';
 import { AssetOcrTable } from 'src/schema/tables/asset-ocr.table.js';
+import { normalizeOcrText } from 'src/utils/ocr-search.js';
 
 @Injectable()
 export class OcrRepository {
@@ -64,8 +65,22 @@ export class OcrRepository {
         .with('inserted_search', (db) =>
           db
             .insertInto('ocr_search')
-            .values({ assetId, text: searchText })
-            .onConflict((oc) => oc.column('assetId').doUpdateSet((eb) => ({ text: eb.ref('excluded.text') }))),
+            .values({
+              assetId,
+              text: searchText,
+              normalizedText: normalizeOcrText(
+                ocrDataList
+                  .filter((item) => item.isVisible !== false)
+                  .map((item) => item.text)
+                  .join(' '),
+              ),
+            })
+            .onConflict((oc) =>
+              oc.column('assetId').doUpdateSet((eb) => ({
+                text: eb.ref('excluded.text'),
+                normalizedText: eb.ref('excluded.normalizedText'),
+              })),
+            ),
         );
     } else {
       (query as any) = query.with('deleted_search', (db) => db.deleteFrom('ocr_search').where('assetId', '=', assetId));
@@ -106,7 +121,11 @@ export class OcrRepository {
       }
 
       const searchText = visible.map((item) => item.text.trim()).join(' ');
-      await trx.updateTable('ocr_search').set({ text: searchText }).where('assetId', '=', assetId).execute();
+      await trx
+        .updateTable('ocr_search')
+        .set({ text: searchText, normalizedText: normalizeOcrText(searchText) })
+        .where('assetId', '=', assetId)
+        .execute();
     });
   }
 }

@@ -814,15 +814,41 @@ where
       "ocr_search"
     where
       "ocr_search"."assetId" = "asset"."id"
-      and f_unaccent (ocr_search.text) %>> f_unaccent ($4)
+      and (
+        (
+          "ocr_search"."normalizedText" like $4
+          or "ocr_search"."normalizedText" ~ $5
+        )
+      )
   )
 order by
+  coalesce(
+    (
+      select
+        (
+          case
+            when "ocr_search"."normalizedText" like $6 then 1000
+            else 0
+          end
+        ) + (
+          case
+            when "ocr_search"."normalizedText" like $7 then 10
+            else 0
+          end + word_similarity ($8, "ocr_search"."normalizedText")
+        )
+      from
+        ocr_search
+      where
+        ocr_search."assetId" = asset.id
+    ),
+    0
+  ) desc,
   "asset"."fileCreatedAt" desc,
   "asset"."id" desc
 limit
-  $5
+  $9
 offset
-  $6
+  $10
 
 -- SearchRepository.searchMetadataV3 (ids-any)
 select

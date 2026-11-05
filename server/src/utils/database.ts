@@ -48,6 +48,7 @@ import {
 } from 'src/repositories/search.repository.js';
 import { DB } from 'src/schema/index.js';
 import { AssetExifTable } from 'src/schema/tables/asset-exif.table.js';
+import { ocrMatch } from 'src/utils/ocr-search.js';
 import { fromChecksum } from 'src/utils/request.js';
 
 export const getKyselyConfig = (connection: DatabaseConnectionParams): KyselyConfig => {
@@ -515,9 +516,7 @@ export function searchAssetBuilderLegacy(kysely: Kysely<DB>, options: AssetSearc
         .where(sql`f_unaccent(asset_exif.description)`, 'ilike', sql`'%' || f_unaccent(${options.description}) || '%'`),
     )
     .$if(!!options.ocr, (qb) =>
-      qb
-        .innerJoin('ocr_search', 'asset.id', 'ocr_search.assetId')
-        .where(() => sql`f_unaccent(ocr_search.text) %>> f_unaccent(${tokenizeForSearch(options.ocr!).join(' ')})`),
+      qb.innerJoin('ocr_search', 'asset.id', 'ocr_search.assetId').where(ocrMatch(options.ocr!)),
     )
     .$if(!!options.type, (qb) => qb.where('asset.type', '=', options.type!))
     .$if(options.isFavorite !== undefined, (qb) => qb.where('asset.isFavorite', '=', options.isFavorite!))
@@ -764,9 +763,7 @@ function branchPredicates(eb: AssetExpressionBuilder, branch: SearchFilterBranch
             eb
               .selectFrom('ocr_search')
               .whereRef('ocr_search.assetId', '=', 'asset.id')
-              .where(
-                sql<SqlBool>`f_unaccent(ocr_search.text) %>> f_unaccent(${tokenizeForSearch(branch.ocr.matches).join(' ')})`,
-              ),
+              .where(ocrMatch(branch.ocr.matches)),
           ),
         ]
       : []),

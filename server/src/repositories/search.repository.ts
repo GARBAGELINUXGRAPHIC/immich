@@ -21,6 +21,7 @@ import {
   withExifInner,
   withSearchOrder,
 } from 'src/utils/database.js';
+import { ocrRank } from 'src/utils/ocr-search.js';
 import { type PaginationOptions, paginationHelper } from 'src/utils/pagination.js';
 
 export interface SearchAssetIdOptions {
@@ -229,6 +230,7 @@ export class SearchRepository {
     const orderDirection = (options.orderDirection?.toLowerCase() || 'desc') as OrderByDirection;
     const items = await searchAssetBuilderLegacy(this.db, options)
       .select(columns.searchAsset)
+      .$if(!!options.ocr, (qb) => qb.orderBy(ocrRank(options.ocr!), 'desc'))
       .orderBy('asset.fileCreatedAt', orderDirection)
       .orderBy('asset.id', orderDirection)
       .limit(pagination.size + 1)
@@ -542,7 +544,10 @@ export class SearchRepository {
   // TODO(v4): drop the V3 suffix once the legacy methods are removed
   @GenerateSql(...searchMetadataV3Examples)
   async searchMetadataV3(pagination: PaginationOptions, options: AssetSearchBuilderV3Options, scope: AssetSearchScope) {
-    const items = await withSearchOrder(searchAssetBuilder(this.db, options, scope), options.order)
+    const query = searchAssetBuilder(this.db, options, scope).$if(!!options.filter?.ocr && !options.order, (qb) =>
+      qb.orderBy(ocrRank(options.filter!.ocr!.matches), 'desc'),
+    );
+    const items = await withSearchOrder(query, options.order)
       .select(columns.searchAsset)
       .limit(pagination.take + 1)
       .offset(pagination.skip ?? 0)

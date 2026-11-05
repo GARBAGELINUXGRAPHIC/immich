@@ -75,6 +75,7 @@ describe(OcrService.name, () => {
     ).resolves.toEqual({
       assetId: asset.id,
       text: 'Test OCR',
+      normalizedText: 'testocr',
     });
     await expect(
       ctx.database
@@ -199,6 +200,7 @@ describe(OcrService.name, () => {
     ).resolves.toEqual({
       assetId: asset.id,
       text: 'One Two Three Four Five',
+      normalizedText: 'onetwothreefourfive',
     });
     await expect(
       ctx.database

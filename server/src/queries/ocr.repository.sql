@@ -58,12 +58,13 @@ with
   ),
   "inserted_search" as (
     insert into
-      "ocr_search" ("assetId", "text")
+      "ocr_search" ("assetId", "text", "normalizedText")
     values
-      ($14, $15)
+      ($14, $15, $16)
     on conflict ("assetId") do update
     set
-      "text" = "excluded"."text"
+      "text" = "excluded"."text",
+      "normalizedText" = "excluded"."normalizedText"
   )
 select
   1 as "dummy"
@@ -72,7 +73,8 @@ select
 begin
 update "ocr_search"
 set
-  "text" = $1
+  "text" = $1,
+  "normalizedText" = $2
 where
-  "assetId" = $2
+  "assetId" = $3
 commit
