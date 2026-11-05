@@ -1,0 +1,15 @@
+# Build the server on the host first: pnpm --filter immich build
+# The generated JavaScript is portable; native dependencies and the unchanged web
+# application come from the exact v3.3.5 runtime used by the source installation.
+FROM ghcr.io/immich-app/immich-server@sha256:485d546a2e31d6a8b4db8423fcba5c109de8c218d93410af115fd1ccfc4352a6
+
+RUN npm install --prefix /opt/personal-search --omit=dev --ignore-scripts --no-audit --no-fund opencc-js@1.4.2 \
+    && ln -s /opt/personal-search/node_modules/opencc-js /usr/src/app/server/node_modules/opencc-js
+
+COPY server/dist/ /usr/src/app/server/dist/
+
+ARG SOURCE_COMMIT=local
+LABEL org.opencontainers.image.title="Immich personal search dev" \
+      org.opencontainers.image.revision=${SOURCE_COMMIT}
+ENV IMMICH_SOURCE_COMMIT=${SOURCE_COMMIT} \
+    IMMICH_SOURCE_REF=quitsense/personal-search
