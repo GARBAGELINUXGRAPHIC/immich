@@ -4,9 +4,18 @@ import type { JobOf } from 'src/types.js';
 import { OnEvent, OnJob } from 'src/decorators.js';
 import { SystemConfig } from 'src/dtos/config.dto.js';
 
-import { AssetVisibility, DatabaseLock, ImmichWorker, JobName, JobStatus, QueueName } from 'src/enum.js';
+import {
+  AssetVisibility,
+  DatabaseExtension,
+  DatabaseLock,
+  ImmichWorker,
+  JobName,
+  JobStatus,
+  QueueName,
+} from 'src/enum.js';
 import { BaseService } from 'src/services/base.service.js';
 import { batched, getCLIPModelInfo, isSmartSearchEnabled } from 'src/utils/misc.js';
+import { isQwenModel } from 'src/utils/qwen-embedding.js';
 
 @Injectable()
 export class SmartInfoService extends BaseService {
@@ -29,11 +38,25 @@ export class SmartInfoService extends BaseService {
         `Unknown CLIP model: ${newConfig.machineLearning.clip.modelName}. Please check the model name for typos and confirm this is a supported model.`,
       );
     }
+    if (isQwenModel(newConfig.machineLearning.clip.modelName) && !this.configRepository.getEnv().qwen.url) {
+      throw new Error('Set IMMICH_QWEN_URL before selecting Qwen3-VL-Embedding-2B');
+    }
   }
 
   private async init(newConfig: SystemConfig, oldConfig?: SystemConfig) {
     if (!isSmartSearchEnabled(newConfig.machineLearning)) {
       return;
+    }
+
+    if (isQwenModel(newConfig.machineLearning.clip.modelName)) {
+      if (!this.configRepository.getEnv().qwen.url) {
+        throw new Error('Set IMMICH_QWEN_URL before selecting Qwen3-VL-Embedding-2B');
+      }
+      if ((await this.databaseRepository.getVectorExtension()) === DatabaseExtension.Vector) {
+        throw new Error(
+          'Qwen 2048-dimensional embeddings require VectorChord; pgvector HNSW is limited to 2000 dimensions',
+        );
+      }
     }
 
     await this.databaseRepository.withLock(DatabaseLock.CLIPDimSize, async () => {
@@ -46,6 +69,11 @@ export class SmartInfoService extends BaseService {
       const isDimSizeChange = dbDimSize !== dimSize;
       if (!modelChange && !isDimSizeChange) {
         return;
+      }
+
+      if (isQwenModel(newConfig.machineLearning.clip.modelName)) {
+        // Verify the new server before discarding the previous search index.
+        await this.machineLearningRepository.encodeText('Search readiness check', newConfig.machineLearning.clip);
       }
 
       if (isDimSizeChange) {

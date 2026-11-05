@@ -464,5 +464,31 @@ describe(SearchService.name, () => {
       expect(secondPage.items.length).toBe(1);
       expect(secondPage.hasNextPage).toBe(false);
     });
+
+    it('supports 2048-dimensional Qwen vectors through both existing search paths', async () => {
+      const db = await getKyselyDB();
+      try {
+        const { ctx } = setup(db);
+        await ctx.get(DatabaseRepository).setDimensionSize(2048);
+        const search = ctx.get(SearchRepository);
+        const { user } = await ctx.newUser();
+        const { user: stranger } = await ctx.newUser();
+        const embedding = JSON.stringify(Array.from({ length: 2048 }, (_, i) => (i === 0 ? 1 : 0)));
+        const { asset } = await ctx.newAsset({ ownerId: user.id });
+        const { asset: privateAsset } = await ctx.newAsset({ ownerId: stranger.id });
+        await search.upsert(asset.id, embedding);
+        await search.upsert(privateAsset.id, embedding);
+        const legacy = await search.searchSmart({ page: 1, size: 10 }, { embedding, userIds: [user.id] });
+        expect(legacy.items.map((item) => item.id)).toEqual([asset.id]);
+        const structured = await search.searchSmartV3(
+          { take: 10 },
+          { embedding, filter: {} },
+          { userIds: [user.id], lockedOwnerId: user.id },
+        );
+        expect(structured.items.map((item) => item.id)).toEqual([asset.id]);
+      } finally {
+        await db.destroy();
+      }
+    });
   });
 });

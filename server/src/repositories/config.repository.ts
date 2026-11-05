@@ -26,6 +26,7 @@ import {
 import { setDifference } from 'src/utils/set.js';
 
 export interface EnvData {
+  qwen: { url?: string; apiKey?: string; timeout: number };
   host?: string;
   port: number;
   environment: ImmichEnvironment;
@@ -255,6 +256,7 @@ const getEnv = (): EnvData => {
 
   return {
     host: dto.IMMICH_HOST,
+    qwen: { url: dto.IMMICH_QWEN_URL, apiKey: dto.IMMICH_QWEN_API_KEY, timeout: dto.IMMICH_QWEN_TIMEOUT },
     port: dto.IMMICH_PORT || 2283,
     environment,
     configFile: dto.IMMICH_CONFIG_FILE,

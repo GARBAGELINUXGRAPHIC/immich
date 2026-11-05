@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Duration } from 'luxon';
 import { readFile } from 'node:fs/promises';
 import { MachineLearningConfig } from 'src/dtos/config.dto.js';
+import { ConfigRepository } from 'src/repositories/config.repository.js';
 import { LoggingRepository } from 'src/repositories/logging.repository.js';
+import { QwenEmbeddingClient, isQwenModel } from 'src/utils/qwen-embedding.js';
 
 export interface BoundingBox {
   x1: number;
@@ -89,7 +91,10 @@ export class MachineLearningRepository {
     return this._config;
   }
 
-  constructor(private logger: LoggingRepository) {
+  constructor(
+    private logger: LoggingRepository,
+    private configRepository: ConfigRepository,
+  ) {
     this.logger.setContext(MachineLearningRepository.name);
   }
 
@@ -203,12 +208,18 @@ export class MachineLearningRepository {
   }
 
   async encodeImage(imagePath: string, { modelName }: MachineLearningConfig['clip']) {
+    if (isQwenModel(modelName)) {
+      return new QwenEmbeddingClient(this.configRepository.getEnv().qwen).encodeImage(imagePath);
+    }
     const request = { [ModelTask.SEARCH]: { [ModelType.VISUAL]: { modelName } } };
     const response = await this.predict<ClipVisualResponse>({ imagePath }, request);
     return response[ModelTask.SEARCH];
   }
 
   async encodeText(text: string, { language, modelName }: TextEncodingOptions) {
+    if (isQwenModel(modelName)) {
+      return new QwenEmbeddingClient(this.configRepository.getEnv().qwen).encodeText(text);
+    }
     const request = { [ModelTask.SEARCH]: { [ModelType.TEXTUAL]: { modelName, options: { language } } } };
     const response = await this.predict<ClipTextualResponse>({ text }, request);
     return response[ModelTask.SEARCH];

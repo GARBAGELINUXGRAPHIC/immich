@@ -1,0 +1,13 @@
+# Windows Docker Desktop: merge with the existing v3.3.5 compose file.
+# Set IMMICH_FORK_PATH to an absolute checkout path before building.
+services:
+  immich-server:
+    image: immich-personal-search:v3.3.5
+    pull_policy: never
+    build:
+      context: ${IMMICH_FORK_PATH:?Set IMMICH_FORK_PATH to the fork checkout}
+      dockerfile: server/Dockerfile
+    environment:
+      IMMICH_QWEN_URL: http://host.docker.internal:28083
+      IMMICH_QWEN_TIMEOUT: '180000'
+      IMMICH_QWEN_API_KEY: ${IMMICH_QWEN_API_KEY:-}

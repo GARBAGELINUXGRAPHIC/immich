@@ -4,6 +4,7 @@ import { DatabaseExtension, ImmichEnvironment, ImmichWorker, LogFormat } from 's
 import { ConfigRepository, EnvData } from 'src/repositories/config.repository.js';
 
 export const envData: EnvData = {
+  qwen: { timeout: 180_000 },
   port: 2283,
   environment: ImmichEnvironment.Production,
   logFormat: LogFormat.Console,

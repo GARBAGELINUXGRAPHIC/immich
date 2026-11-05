@@ -1,5 +1,5 @@
 import { SystemConfig } from 'src/dtos/config.dto.js';
-import { AssetFileType, AssetVisibility, ImmichWorker, JobName, JobStatus } from 'src/enum.js';
+import { AssetFileType, AssetVisibility, DatabaseExtension, ImmichWorker, JobName, JobStatus } from 'src/enum.js';
 import { SmartInfoService } from 'src/services/smart-info.service.js';
 import { getCLIPModelInfo } from 'src/utils/misc.js';
 import { AssetFactory } from 'test/factories/asset.factory.js';
@@ -51,6 +51,29 @@ describe(SmartInfoService.name, () => {
   });
 
   describe('onConfigInit', () => {
+    const qwenConfig = {
+      machineLearning: { enabled: true, clip: { enabled: true, modelName: 'Qwen3-VL-Embedding-2B' } },
+    } as SystemConfig;
+
+    it('does not discard an index if the Qwen server is unavailable', async () => {
+      const env = mocks.config.getEnv();
+      mocks.config.getEnv.mockReturnValue({ ...env, qwen: { url: 'http://localhost:28083', timeout: 1000 } });
+      mocks.database.getVectorExtension.mockResolvedValue(DatabaseExtension.VectorChord);
+      mocks.database.getDimensionSize.mockResolvedValue(512);
+      mocks.machineLearning.encodeText.mockRejectedValue(new Error('Server unavailable'));
+      await expect(sut.onConfigInit({ newConfig: qwenConfig })).rejects.toThrow('Server unavailable');
+      expect(mocks.database.setDimensionSize).not.toHaveBeenCalled();
+      expect(mocks.database.deleteAllSearchEmbeddings).not.toHaveBeenCalled();
+    });
+
+    it('rejects a Qwen index with unsupported pgvector HNSW dimensions', async () => {
+      const env = mocks.config.getEnv();
+      mocks.config.getEnv.mockReturnValue({ ...env, qwen: { url: 'http://localhost:28083', timeout: 1000 } });
+      mocks.database.getVectorExtension.mockResolvedValue(DatabaseExtension.Vector);
+      await expect(sut.onConfigInit({ newConfig: qwenConfig })).rejects.toThrow('require VectorChord');
+      expect(mocks.database.setDimensionSize).not.toHaveBeenCalled();
+    });
+
     it('should return if machine learning is disabled', async () => {
       await sut.onConfigInit({ newConfig: systemConfigStub.machineLearningDisabled as SystemConfig });
 
