@@ -1,0 +1,90 @@
+name: immich-personal-search
+
+services:
+  immich-server:
+    image: immich-personal-search/server:v3.3.5-quitsense.1
+    pull_policy: never
+    environment:
+      DB_HOSTNAME: database
+      DB_USERNAME: postgres
+      DB_DATABASE_NAME: immich
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      DB_VECTOR_EXTENSION: vectorchord
+      REDIS_HOSTNAME: redis
+      IMMICH_CONFIG_FILE: /etc/immich/personal-search.yml
+      IMMICH_QWEN_URL: http://qwen:8080
+      IMMICH_QWEN_TIMEOUT: '180000'
+    networks: [default, models]
+    ports:
+      - '${IMMICH_PORT:-2285}:2283'
+    volumes:
+      - media:/data
+      - ./immich.yml:/etc/immich/personal-search.yml:ro
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qwen:
+        condition: service_healthy
+      immich-machine-learning:
+        condition: service_healthy
+    healthcheck:
+      start_period: 5m
+    restart: unless-stopped
+
+  qwen:
+    image: immich-personal-search/qwen:2b-q8-b12110
+    pull_policy: never
+    networks: [models]
+    gpus: all
+    healthcheck:
+      test: ['CMD', 'bash', '-ec', 'exec 3<>/dev/tcp/127.0.0.1/8080; printf "GET /health HTTP/1.0\r\n\r\n" >&3; read -r status <&3; [[ "$$status" == HTTP/*" 200 "* ]]']
+      interval: 5s
+      timeout: 3s
+      start_period: 2m
+      retries: 12
+    restart: unless-stopped
+
+  immich-machine-learning:
+    image: immich-personal-search/ml:v3.3.5-quitsense.1
+    networks: [models]
+    pull_policy: never
+    restart: unless-stopped
+
+  redis:
+    image: immich-personal-search/redis:8-bookworm
+    pull_policy: never
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  database:
+    image: immich-personal-search/postgres:14-vectorchord0.4.3
+    pull_policy: never
+    command: ['postgres', '-c', 'config_file=/etc/postgresql/postgresql.conf', '-c', 'shared_preload_libraries=vchord.so']
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    volumes:
+      - database:/var/lib/postgresql/data
+    shm_size: 128mb
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres', '-d', 'immich']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+networks:
+  models:
+    internal: true
+
+volumes:
+  media:
+  database:

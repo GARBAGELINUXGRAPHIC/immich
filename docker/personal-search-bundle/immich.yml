@@ -1,0 +1,18 @@
+machineLearning:
+  urls: [http://immich-machine-learning:3003]
+  clip:
+    modelName: Qwen3-VL-Embedding-2B
+  facialRecognition:
+    modelName: buffalo_l
+  ocr:
+    modelName: PP-OCRv5_server
+    maxResolution: 2048
+    minDetectionScore: 0.5
+    minRecognitionScore: 0.5
+job:
+  smartSearch:
+    concurrency: 1
+  ocr:
+    concurrency: 1
+newVersionCheck:
+  enabled: false

@@ -1,0 +1,4 @@
+services:
+  immich-server:
+    image: ${IMMICH_SERVER_IMAGE:?Set IMMICH_SERVER_IMAGE to the published Docker Hub image}
+    pull_policy: missing

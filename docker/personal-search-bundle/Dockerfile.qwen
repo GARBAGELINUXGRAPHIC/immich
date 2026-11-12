@@ -1,0 +1,12 @@
+FROM ghcr.io/ggml-org/llama.cpp:server-cuda-b12110@sha256:a2963b4817f03eea7e0d6065ea576252322792441ef97aaae178b924520547d6
+
+LABEL org.opencontainers.image.title="Immich Qwen 2B Q8 embedding server"
+
+COPY --from=qwen_weights /Qwen3-VL-Embedding-2B.Q8_0.gguf /models/
+COPY --from=qwen_weights /Qwen3-VL-Embedding-2B.mmproj-Q8_0.gguf /models/
+RUN --network=none cd /models && printf '%s\n' \
+    '26fadde153b2266d244de4752c2dcba35be78872bdeeb005390b74689d45d851  Qwen3-VL-Embedding-2B.Q8_0.gguf' \
+    'fa5a22b400fcfa32453656fdc7063bd2c80007030a79cb4f07f7c19cb1e40e8e  Qwen3-VL-Embedding-2B.mmproj-Q8_0.gguf' \
+    | sha256sum --check
+
+CMD ["--model", "/models/Qwen3-VL-Embedding-2B.Q8_0.gguf", "--mmproj", "/models/Qwen3-VL-Embedding-2B.mmproj-Q8_0.gguf", "--alias", "Qwen3-VL-Embedding-2B", "--embedding", "--pooling", "last", "--ctx-size", "2048", "--batch-size", "2048", "--ubatch-size", "2048", "--parallel", "1", "--n-gpu-layers", "99", "--flash-attn", "on", "--image-max-tokens", "1024", "--host", "0.0.0.0", "--port", "8080", "--no-webui", "--no-warmup"]
